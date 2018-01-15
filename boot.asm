@@ -1,3 +1,8 @@
+; ; boot.asm
+; ;
+; ; - setup page table
+; ; - enable long mode
+
 global start
 
 section .text
@@ -15,7 +20,7 @@ start:
 
     ; point each page tabel level two entry to a page
     mov ecx, 0                    ; counter variable
-    .map_p2_table:
+.map_p2_table:
     mov eax, 0x200000             ; 2MB
     mul ecx                       ; eax = eax * ecx
     or eax, 0b10000011            ; huge page bit: 2MiB pages
@@ -47,19 +52,16 @@ start:
     or eax, 1 << 16
     mov cr0, eax
 
-    mov word [0xb8000], 0x0248    ; H
-    mov word [0xb8002], 0x0265    ; e
-    mov word [0xb8004], 0x026c    ; l
-    mov word [0xb8006], 0x026c    ; l
-    mov word [0xb8008], 0x026f    ; o
-    mov word [0xb800a], 0x022c    ; ,
-    mov word [0xb800c], 0x0220
-    mov word [0xb800e], 0x0277    ; w
-    mov word [0xb8010], 0x026f    ; o
-    mov word [0xb8012], 0x0272    ; r
-    mov word [0xb8014], 0x026c    ; l
-    mov word [0xb8016], 0x0264    ; d
-    mov word [0xb8018], 0x0221    ; !
+    lgdt [gdt64.pointer]
+
+    ; update selectors
+    mov ax, gdt64.data
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+
+    ; jump to long mode!
+    jmp gdt64.code:long_mode_start
     hlt
 
 section .bss
@@ -72,3 +74,28 @@ p3_table:
     resb 4096
 p2_table:
     resb 4096
+
+
+section .rodata
+gdt64:
+    dq 0
+.code: equ $ - gdt64
+    dq (1<<44) | (1<<47) | (1<<41) | (1<<43) | (1<<53)
+.data: equ $ - gdt64
+    dq (1<<44) | (1<<47) | (1<<41)
+.pointer:
+    dw .pointer - gdt64 - 1
+    dq gdt64
+    ; 44: ‘descriptor type’: This has to be 1 for code and data segments
+    ; 47: ‘present’: This is set to 1 if the entry is valid
+    ; 41: ‘read/write’: If this is a code segment, 1 means that it’s readable
+    ; 43: ‘executable’: Set to 1 for code segments
+    ; 53: ‘64-bit’: if this is a 64-bit GDT, this should be set
+
+
+section .text
+bits 64
+long_mode_start:
+    mov rax, 0x2f592f412f4b2f4f
+    mov qword [0xb8000], rax
+    hlt
