@@ -1,20 +1,35 @@
 
+BUILDDIR := build
+
 NASM = nasm
-CC =  x86_64-pc-elf-gcc
+CC = x86_64-pc-elf-gcc
+LD = x86_64-pc-elf-ld
 
 NASMFLAGS = -f elf64
 
-%.o: %.asm
-	$(NASM) $(NASMFLAGS) $<
+$(BUILDDIR)/%.o: %.asm
+	mkdir -p $(BUILDDIR)
+	$(NASM) $(NASMFLAGS) $< -o $@
 
-ASMSRCS := $(wildcard *.asm)
-ASMOBJS := $(patsubst %.asm,%.o,$(ASMSRCS))
+default: build
 
-objects: $(ASMOBJS)
+build: $(BUILDDIR)/os.iso
 
-all: objects
+$(BUILDDIR)/kernel.bin: $(BUILDDIR)/multiboot_header.o $(BUILDDIR)/boot.o
+	$(LD) --nmagic --output=kernel.bin --script=linker.ld $(BUILDDIR)/multiboot_header.o $(BUILDDIR)/boot.o -o $@
 
-.PHONY: all clean
+$(BUILDDIR)/os.iso: $(BUILDDIR)/kernel.bin grub.cfg
+	mkdir -p $(BUILDDIR)/isofiles/boot/grub
+	cp grub.cfg $(BUILDDIR)/isofiles/boot/grub
+	cp $(BUILDDIR)/kernel.bin $(BUILDDIR)/isofiles/boot/
+	grub-mkrescue -o $(BUILDDIR)/os.iso $(BUILDDIR)/isofiles
+
+all: build
+
+run: $(BUILDDIR)/os.iso
+	qemu-system-x86_64 -cdrom $(BUILDDIR)/os.iso
+
+.PHONY: default build run clean
 
 clean:
-	rm *.o
+	-rm -rf build
