@@ -16,7 +16,7 @@ default: build
 build: $(BUILDDIR)/os.iso
 
 $(BUILDDIR)/kernel.bin: $(BUILDDIR)/multiboot_header.o $(BUILDDIR)/boot.o
-	$(LD) --nmagic --output=kernel.bin --script=linker.ld $(BUILDDIR)/multiboot_header.o $(BUILDDIR)/boot.o -o $@
+	$(LD) --nmagic --output=$(BUILDDIR)/kernel.bin --script=linker.ld $(BUILDDIR)/multiboot_header.o $(BUILDDIR)/boot.o -o $@
 
 $(BUILDDIR)/os.iso: $(BUILDDIR)/kernel.bin grub.cfg
 	mkdir -p $(BUILDDIR)/isofiles/boot/grub
